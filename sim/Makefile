@@ -6,7 +6,7 @@
 ## -------------------------------------------------------------
 #
 TB_NAME   ?=testbench  
-TESTNAME  ?=uart_base_test
+TESTNAME  ?=i2c_base_test
 VERBOSITY ?=UVM_HIGH
 RUNARG    ?=
 SEED      ?=1
