@@ -20,12 +20,12 @@ module testbench;
 		.wb_ack_o	(wishbone_vif.wb_ack_o),
 		.wb_inta_o	(wishbone_vif.wb_inta_o),
 		/** I2C Signals **/
-		.scl_pad_i	(scl_pad_i),
-		.scl_pad_o	(scl_pad_o),
-		.scl_pad_oe	(scl_pad_oe),
-		.sda_pad_i	(sda_pad_i),
-		.sda_pad_o	(sda_pad_o),
-		.sda_pad_oe	(sda_pad_oe)
+		.scl_pad_i	(wishbone_vif.scl_pad_i),
+		.scl_pad_o	(wishbone_vif.scl_pad_o),
+		.scl_padoen_o	(wishbone_vif.scl_padoen_o),
+		.sda_pad_i	(wishbone_vif.sda_pad_i),
+		.sda_pad_o	(wishbone_vif.sda_pad_o),
+		.sda_padoen_o	(wishbone_vif.sda_padoen_o)
 	);
 
 	initial begin
