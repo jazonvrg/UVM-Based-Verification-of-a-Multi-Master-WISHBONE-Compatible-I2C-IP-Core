@@ -4,7 +4,8 @@ class i2c_agent extends uvm_agent;
 	i2c_sequencer seq;
 	i2c_driver drv;
 	i2c_monitor mnt;
-
+	i2c_configuration cfg;
+	
 	virtual i2c_if i2c_vif;
 
 	function new(string name = "i2c_agent", uvm_component parent);
@@ -22,8 +23,10 @@ class i2c_agent extends uvm_agent;
 			seq = i2c_sequencer::type_id::create("seq", this);
 			drv = i2c_driver::type_id::create("drv", this);
 			mnt = i2c_monitor::type_id::create("mnt", this);
+			cfg = i2c_configuration::type_id::create("cfg", this);
 			uvm_config_db#(virtual i2c_if)::set(this, "drv", "i2c_vif", i2c_vif);
 			uvm_config_db#(virtual i2c_if)::set(this, "mnt", "i2c_vif", i2c_vif);
+			uvm_config_db#(virtual i2c_configuration)::set(this, "drv", "cfg", cfg);
 		end else begin
 			mnt = i2c_monitor::type_id::create("mnt", this);
 			uvm_config_db#(virtual i2c_if)::set(this, "mnt", "i2c_vif", i2c_vif);

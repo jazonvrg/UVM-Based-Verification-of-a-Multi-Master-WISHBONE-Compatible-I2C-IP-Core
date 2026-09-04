@@ -20,13 +20,16 @@ class i2c_driver extends uvm_driver;
 		if (!uvm_config_db#(virtual i2c_if)::get(this, "", "i2c_vif", i2c_vif)) begin
 			`uvm_fatal(get_type_name(), $sformatf("Failed to get i2c_if from uvm_config_db"));
 		end
+		if (!uvm_config_db#(virtual i2c_configuration)::get(this, "", "cfg", cfg)) begin
+			`uvm_fatal(get_type_name(), $sformatf("Failed to get i2c_configuration from uvm_config_db"));
+		end
 		`uvm_info("build_phase", "Exiting...", UVM_HIGH) 
 	endfunction: build_phase
 	
 	virtual task run_phase(uvm_phase phase);
 		`uvm_info("run_phase", "Entered...", UVM_HIGH)
-		i2c_vif.scl_padoen_oe = 1'b1;
-		i2c_vif.sda_padoen_oe = 1'b1;
+		drv_scl = 1'b1;
+		drv_sda = 1'b1;	
 		forever begin
 			drive();
 		end	
@@ -34,15 +37,29 @@ class i2c_driver extends uvm_driver;
 	endtask: run_phase
 
 	virtual task drive();
-		wait (i2c_vif.scl_pad_i === 1'b1 && i2c_vif.sda === 1'b1);
-		@(negedge i2c_vif.sda iff i2c_vif.scl === 1'b1);
+		wait (vif.scl === 1'b1 && vif.sda === 1'b1);
+		@(negedge vif.sda iff vif.scl === 1'b1);
 		for (int i = 6; i >= 0; i = i - 1) begin
 			@(posedge i2c_vif.scl);
 			mem_addr[i] = i2c_vif.sda;
 		end
 		@(posedge i2c_vif.scl);
 		mem_rw = i2c_vif.sda;
-		
+		if (mem_addr === cfg.addr) begin
+			@(negedge i2c_vif.scl);
+			vif.sda = 1'b0;
+			@(negedge i2c_vif.scl);
+			vif.sda = 1'b1;
+			if (mem_rw === 1'b1) begin
+				for (int i = 7; i >= 0; i = i - 1) begin
+					drv_sda = cfg.data[i];
+				end
+			end else begin
+				for (int i = 7; i >= 0; i = i - 1) begin
+					mem_data[i] = i2c_vif.sda;
+				end
+			end
+		end
 	endtask
 
 endclass: i2c_driver
