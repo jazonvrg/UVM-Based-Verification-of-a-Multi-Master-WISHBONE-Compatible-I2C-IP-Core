@@ -50,15 +50,27 @@ class i2c_driver extends uvm_driver;
 			vif.sda = 1'b0;
 			@(negedge i2c_vif.scl);
 			vif.sda = 1'b1;
-			if (mem_rw === 1'b1) begin
+			seq_item_port.get_next_item(req);				
+			if (mem_rw === 1'b0) begin
 				for (int i = 7; i >= 0; i = i - 1) begin
-					drv_sda = cfg.data[i];
+					@(posedge i2c_vif.scl);
+					req.data[i] = i2c_vif.sda;
 				end
+				@(negedge i2c_vif.scl);
+				drv_sda = 1'b0;
+				@(negedge i2c_vif.scl);
+				drv_sda = 1'b1;	
 			end else begin
 				for (int i = 7; i >= 0; i = i - 1) begin
-					mem_data[i] = i2c_vif.sda;
+					@9posedge i2c_vif.scl);
+					drv_sda = req.data[i];
 				end
+				@(negedge i2c_vif.scl);
+				ack_signal = 1'b1;
+				@(posedge i2c_vif.scl);
+				drv_sda = 1'b1;
 			end
+			seq_item_port.item_done();
 		end
 	endtask
 
