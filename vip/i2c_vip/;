@@ -65,7 +65,7 @@ class i2c_driver extends uvm_driver;
 					@(negedge i2c_v.sda);
 					drv_sda = req.data[i];
 				end
-				@(posedge i2c_vif.scl);
+				@(negedge i2c_vif.scl);
 				ack_signal = 1'b1;
 				@(posedge i2c_vif.scl);
 				drv_sda = 1'b1;
