@@ -1,5 +1,5 @@
 class i2c_driver extends uvm_driver;
-	`uvm_utils_component(i2c_driver)
+	`uvm_component_utils(i2c_driver)
 
 	typedef enum logic {
 		WRITE = 1'b0,
@@ -8,6 +8,8 @@ class i2c_driver extends uvm_driver;
 
 	logic [6:0] mem_addr;
 	xact_type_enum mem_rw;
+
+	virtual i2c_if i2c_vif;
 
 	function new(string name = "i2c_driver", uvm_component parent);
 		super.new(name, parent);
@@ -43,7 +45,7 @@ class i2c_driver extends uvm_driver;
 		/* Address phase */
 		for (int i = 6; i >= 0; i = i - 1) begin
 			@(posedge i2c_vif.scl);
-			mem_addr[i] = i2c_vif.sda;
+			mem_addr[i] = xact_type_enum'(i2c_vif.sda);
 		end
 		/* Read\Write Enable */
 		@(posedge i2c_vif.scl);
@@ -51,10 +53,11 @@ class i2c_driver extends uvm_driver;
 		if (mem_addr === cfg.addr) begin
 			@(negedge i2c_vif.scl);
 			vif.sda = 1'b0;
+			/* Release */
 			@(negedge i2c_vif.scl);
 			vif.sda = 1'b1;
 			seq_item_port.get_next_item(req);				
-			if (mem_rw === 1'b0) begin
+			if (mem_rw === WRITE) begin
 				/* Data phase */
 				for (int i = 7; i >= 0; i = i - 1) begin
 					@(posedge i2c_vif.scl);
@@ -63,21 +66,19 @@ class i2c_driver extends uvm_driver;
 				/* Ack */
 				@(negedge i2c_vif.scl);
 				drv_sda = 1'b0;
-				/* Stop */
+				/* Release */
 				@(negedge i2c_vif.scl);
 				drv_sda = 1'b1;	
 			end else begin
 				/* Data phase */
 				for (int i = 7; i >= 0; i = i - 1) begin
-					@(negedge i2c_v.sda);
 					drv_sda = req.data[i];
+					@(negedge i2c_v.sda);
 				end
-				/* Ack */
-				@(negedge i2c_vif.scl);
+				/* Release */
 				ack_signal = 1'b1;
-				/* Stop */
-				@(negedge i2c_vif.scl);
-				drv_sda = 1'b1;
+				/* Ack / Nack */
+				@(posedge i2c_vif.scl);
 			end
 			seq_item_port.item_done();
 		end
