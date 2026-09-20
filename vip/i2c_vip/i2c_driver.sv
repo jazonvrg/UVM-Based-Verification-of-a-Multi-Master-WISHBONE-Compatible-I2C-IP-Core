@@ -37,12 +37,15 @@ class i2c_driver extends uvm_driver;
 	endtask: run_phase
 
 	virtual task drive();
+		/* Start */
 		wait (vif.scl === 1'b1 && vif.sda === 1'b1);
 		@(negedge vif.sda iff vif.scl === 1'b1);
+		/* Address phase */
 		for (int i = 6; i >= 0; i = i - 1) begin
 			@(posedge i2c_vif.scl);
 			mem_addr[i] = i2c_vif.sda;
 		end
+		/* Read\Write Enable */
 		@(posedge i2c_vif.scl);
 		mem_rw = i2c_vif.sda;
 		if (mem_addr === cfg.addr) begin
@@ -52,22 +55,28 @@ class i2c_driver extends uvm_driver;
 			vif.sda = 1'b1;
 			seq_item_port.get_next_item(req);				
 			if (mem_rw === 1'b0) begin
+				/* Data phase */
 				for (int i = 7; i >= 0; i = i - 1) begin
 					@(posedge i2c_vif.scl);
 					req.data[i] = i2c_vif.sda;
 				end
+				/* Ack */
 				@(negedge i2c_vif.scl);
 				drv_sda = 1'b0;
+				/* Stop */
 				@(negedge i2c_vif.scl);
 				drv_sda = 1'b1;	
 			end else begin
+				/* Data phase */
 				for (int i = 7; i >= 0; i = i - 1) begin
 					@(negedge i2c_v.sda);
 					drv_sda = req.data[i];
 				end
-				@(posedge i2c_vif.scl);
+				/* Ack */
+				@(negedge i2c_vif.scl);
 				ack_signal = 1'b1;
-				@(posedge i2c_vif.scl);
+				/* Stop */
+				@(negedge i2c_vif.scl);
 				drv_sda = 1'b1;
 			end
 			seq_item_port.item_done();
