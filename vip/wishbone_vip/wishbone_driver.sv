@@ -1,92 +1,80 @@
-`ifndef WISHBONE_DRIVER_SV
-`define WISHBONE_DRIVER_SV
 class wishbone_driver extends uvm_driver #(wishbone_transaction);
-  `uvm_component_utils(wishbone_driver)
-  virtual wishbone_if vif;
-  int unsigned ack_timeout_cycles = 100;
+  	`uvm_component_utils(wishbone_driver)
 
-  function new(string name = "wishbone_driver", uvm_component parent = null);
-    super.new(name, parent);
-  endfunction
+  	virtual wishbone_if wb_vif;
+	wishbone_transaction req;
+	logic [7:0] rdata;
+	logic success, ack;
+	int timeout = 100;
+	
+  	function new(string name = "wishbone_driver", uvm_component parent);
+    		super.new(name, parent);
+  	endfunction: new
+	
+  	function void build_phase(uvm_phase phase);
+    		super.build_phase(phase);
+		`uvm_info("build_phase", "Entered...", UVM_LOW)
 
-  function void build_phase(uvm_phase phase);
-    super.build_phase(phase);
-    if (!uvm_config_db#(virtual wishbone_if)::get(this, "", "vif", vif))
-      `uvm_fatal(get_type_name(), "virtual wishbone_if was not provided")
-  endfunction
+    		if (!uvm_config_db#(virtual wishbone_if)::get(this, "", "wb_vif", wb_vif)) begin
+      			`uvm_fatal(get_type_name(), "Failed to get wb_vif from uvm_config_db")
+		end
+		
+		`uvm_info("build_phase", "Exiting...", UVM_LOW)
+  	endfunction: build_phase
 
-  task drive_idle();
-    @(negedge vif.wb_clk_i);
-    vif.wb_adr_i = '0;
-    vif.wb_dat_i = '0;
-    vif.wb_we_i  = 1'b0;
-    vif.wb_stb_i = 1'b0;
-    vif.wb_cyc_i = 1'b0;
-  endtask
+  	task run_phase(uvm_phase phase);
+		`uvm_info("run_phase", "Entered...", UVM_LOW)
+  
+		/* Initialize */
+		wait(wb_vif.wb_rst_i);
+    		wb_vif.wb_adr_i = '0;
+    		wb_vif.wb_dat_i = '0;
+    		wb_vif.wb_we_i = 1'b0;
+    		wb_vif.wb_stb_i = 1'b0;
+    		wb_vif.wb_cyc_i = 1'b0;
+		/* In process */
+    		forever begin
+			seq_item_port.get_next_item(req);
+      			drive();
+      			seq_item_port.item_done(rsp);
+      			`uvm_info("WB_DRV", rsp.convert2string(), UVM_HIGH)
+    		end
+		
+		`uvm_info("run_phase", "Exiting...", UVM_LOW)
+  	endtask: run_phase
 
-  task drive_item(wishbone_transaction req, output bit [7:0] read_data, output bit success);
-    bit got_ack;
-    read_data = '0;
-    success = 1'b0;
-    got_ack = 1'b0;
+  	task drive();
+		/* Initialize */
+    		read_data = '0;
+    		success = 1'b0;
+    		got_ack = 1'b0;
+		/* Setup */
+    		@(posedge vif.wb_clk_i);
+    		wb_vif.wb_adr_i <= req.addr;
+    		wb_vif.wb_dat_i <= (req.kind == WB_WRITE) ? req.wdata : 8'h00;
+    		wb_vif.wb_we_i  <= (req.kind == WB_WRITE);
+    		wb_vif.wb_stb_i <= 1'b1;
+    		wb_vif.wb_cyc_i <= 1'b1;
+		/* Handshake */
+		for(int i = 0; i < timeout; i++) begin
+      			@(posedge vif.wb_clk_i);
+      			if (vif.wb_ack_o === 1'b1) begin
+        			ack = 1'b1;
+        			success = 1'b1;
+        			if (req.kind == WB_READ) begin
+					read_data = vif.wb_dat_o;
+				end
+        			break;
+			end
+      		end
+    		if (ack === 1'b0) begin
+      			`uvm_error(get_type_name(), $sformatf("ACK signal is inactive"))
+		end
+		/* Response */
+      		$cast(rsp, req.clone());
+		rsp.set_id_info(req);
+      		rsp.rdata = rdata;
+      		rsp.success = success;
+  	endtask
 
-    @(negedge vif.wb_clk_i);
-    vif.wb_adr_i = req.addr;
-    vif.wb_dat_i = (req.kind == WB_WRITE) ? req.wdata : 8'h00;
-    vif.wb_we_i  = (req.kind == WB_WRITE);
-    vif.wb_stb_i = 1'b1;
-    vif.wb_cyc_i = 1'b1;
-
-    for (int unsigned n = 0; n < ack_timeout_cycles; n++) begin
-      @(posedge vif.wb_clk_i);
-      #1ps;
-      if (vif.wb_ack_o === 1'b1) begin
-        got_ack = 1'b1;
-        success = 1'b1;
-        if (req.kind == WB_READ) read_data = vif.wb_dat_o;
-        break;
-      end
-    end
-
-    if (!got_ack)
-      `uvm_error("WB_ACK_TIMEOUT", $sformatf("No wb_ack_o within %0d cycles: %s", ack_timeout_cycles, req.convert2string()))
-
-    // Keep the request stable through one more active edge, then deassert at
-    // the following falling edge. This matches the two-clock access timing
-    // described by the supplied OpenCores specification.
-    @(posedge vif.wb_clk_i);
-    #1ps;
-    @(negedge vif.wb_clk_i);
-    vif.wb_adr_i = '0;
-    vif.wb_dat_i = '0;
-    vif.wb_we_i  = 1'b0;
-    vif.wb_stb_i = 1'b0;
-    vif.wb_cyc_i = 1'b0;
-  endtask
-
-  task run_phase(uvm_phase phase);
-    wishbone_transaction req;
-    wishbone_transaction rsp;
-    bit [7:0] rdata;
-    bit success;
-    vif.wb_adr_i = '0;
-    vif.wb_dat_i = '0;
-    vif.wb_we_i = 1'b0;
-    vif.wb_stb_i = 1'b0;
-    vif.wb_cyc_i = 1'b0;
-    forever begin
-      seq_item_port.get_next_item(req);
-      drive_item(req, rdata, success);
-      rsp = wishbone_transaction::type_id::create("rsp");
-      rsp.set_id_info(req);
-      rsp.kind = req.kind;
-      rsp.addr = req.addr;
-      rsp.wdata = req.wdata;
-      rsp.rdata = rdata;
-      rsp.success = success;
-      seq_item_port.item_done(rsp);
-      `uvm_info("WB_DRV", rsp.convert2string(), UVM_HIGH)
-    end
-  endtask
-endclass
-`endif
+endclass: wishbone_driver

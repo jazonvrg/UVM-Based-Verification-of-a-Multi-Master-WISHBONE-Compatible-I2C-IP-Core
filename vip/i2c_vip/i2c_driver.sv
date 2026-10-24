@@ -8,6 +8,7 @@ class i2c_driver extends uvm_driver;
 
 	logic [6:0] mem_addr;
 	xact_type_enum mem_rw;
+	logic mem_ack;
 
 	virtual i2c_if i2c_vif;
 
@@ -73,12 +74,13 @@ class i2c_driver extends uvm_driver;
 				/* Data phase */
 				for (int i = 7; i >= 0; i = i - 1) begin
 					drv_sda = req.data[i];
-					@(negedge i2c_v.sda);
+					@(negedge i2c_vif.sda);
 				end
 				/* Release */
 				ack_signal = 1'b1;
 				/* Ack / Nack */
 				@(posedge i2c_vif.scl);
+				mem_ack = i2c_vif.sda;
 			end
 			seq_item_port.item_done();
 		end
