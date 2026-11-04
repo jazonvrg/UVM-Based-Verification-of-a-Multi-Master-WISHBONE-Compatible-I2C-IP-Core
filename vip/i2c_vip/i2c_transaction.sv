@@ -1,24 +1,27 @@
 class i2c_transaction extends uvm_sequence_item;
+	`uvm_object_utils(i2c_transaction)
 	
-	typedef enum logic {
-		WRITE = 1
-		READ  = 0
-	} xact_type_enum;
+  logic start_seen;
+  logic stop_seen;
+  logic repeated_start_seen;
+  logic [7:0] byte_stream[$];
+  logic ack_nack[$];
+	
+  function new(string name = "i2c_bus_item");
+	  super.new(name);
+  endfunction
 
-	rand logic [`WIS_ADDR_WIDTH-1:0] addr;
-	rand logic [`WIS_DATA_WIDTH-1:0] data;
-	xact_type_enum                   xact_type;
-	rand logic                       ack;
-
-	`uvm_object_utils_begin (wishbone_transaction)
-		`uvm_field_logic (addr                      , UVM_ALL_ON | UVM_HEX)
-		`uvm_field_int   (data                      , UVM_ALL_ON | UVM_HEX)
-    		`uvm_field_enum  (xact_type_enum , xact_type, UVM_ALL_ON | UVM_STRING)
-		`uvm_field_int   (ack                       , UVM_ALL_ON | UVM_HEX)
-	`uvm_object_utils_end
-
-	function new(string name = "i2c_transaction");
-		super.new(name);
-	endfunction: new
-
-endclass: i2c_transaction
+  function void do_copy(uvm_object rhs);
+    i2c_bus_item r;
+    if (!$cast(r, rhs)) `uvm_fatal("I2C_COPY", "do_copy type mismatch")
+    super.do_copy(rhs);
+    start_seen = r.start_seen;
+    stop_seen = r.stop_seen;
+    repeated_start_seen = r.repeated_start_seen;
+    byte_stream.delete();
+    ack_nack.delete();
+    foreach (r.byte_stream[i]) byte_stream.push_back(r.byte_stream[i]);
+    foreach (r.ack_nack[i]) ack_nack.push_back(r.ack_nack[i]);
+  endfunction
+	
+endclass
