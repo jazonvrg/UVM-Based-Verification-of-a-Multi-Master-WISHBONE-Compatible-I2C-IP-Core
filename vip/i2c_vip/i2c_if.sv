@@ -1,28 +1,18 @@
-interface i2c_if();
+interface i2c_if;
 
-	logic scl_pad_i;
-	logic scl_pad_o;
-	logic scl_padoen_o;
-	logic sda_pad_i;
-	logic sda_pad_o;
-	logic sda_padoen_o;
+  wire scl_pad_i;
+  wire sda_pad_i;
+  wire scl_pad_o;
+  wire scl_padoen_o;
+  wire sda_pad_o;
+  wire sda_padoen_o;
 
-	triand scl;
-	triand sda;
+  tri1 scl_line;
+  tri1 sda_line;
 
-	logic drv_scl = 1'b1;
-	logic drv_sda = 1'b1;
+  assign scl_line = scl_padoen_o ? 1'bz : scl_pad_o;
+  assign sda_line = sda_padoen_o ? 1'bz : sda_pad_o;
+  assign scl_pad_i = scl_line;
+  assign sda_pad_i = sda_line;
 
-	assign scl = (scl_padoen_o === 1'b0) ? scl_pad_o : 1'bz
-	assign sda = (sda_padoen_o === 1'b0) ? sda_pad_o : 1'bz;
-
-	assign scl = (drv_scl === 1'b0) ? 1'b0 : 1'bz;
-	assign sda = (drv_sda === 1'b0) ? 1'b0 : 1'bz;
-
-	assign scl_pad_i = scl;
-	assign sda_pad_i = sda;
-
-	pull(scl);
-	pull(sda); 	
-
-endinterface: i2c_if
+endinterface
