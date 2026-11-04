@@ -7,7 +7,7 @@ class i2c_agent extends uvm_agent;
   function new(string name = "i2c_agent", uvm_component parent);
     super.new(name, parent);
     is_active = UVM_PASSIVE;
-  endfunction
+  endfunction: new
 
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
@@ -15,6 +15,6 @@ class i2c_agent extends uvm_agent;
 		`uvm_fatal(get_type_name(), "Failed to get i2c_if from uvm_config_db")
 		mnt = i2c_monitor::type_id::create("mnt", this);
 	  uvm_config_db#(virtual i2c_if)::set(this, "mnt", "vif", vif);
-  endfunction
+  endfunction: build_phase
 	
-endclass
+endclass: i2c_agent
